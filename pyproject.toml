@@ -25,15 +25,18 @@ classifiers = [
 dependencies = [
     "numpy>=1.24",
     "scipy>=1.10",
+    "pydantic>=2.0",
+    "structlog>=23.1.0",
 ]
 
 [project.optional-dependencies]
 quant = ["pandas>=2.0", "numba>=0.57"]
 ci = ["click>=8.0", "rich>=13.0"]
-integrations = ["deepeval", "ragas"]
-dev = ["pytest", "hypothesis", "black", "mypy", "ruff"]
-async = ["aiohttp"]
-all = ["pandas>=2.0", "numba>=0.57", "click>=8.0", "rich>=13.0", "aiohttp"]
+server = ["fastapi", "uvicorn", "opentelemetry-api", "opentelemetry-sdk", "sse-starlette", "redis", "sqlmodel", "cryptography"]
+all = ["pandas>=2.0", "numba>=0.57", "click>=8.0", "rich>=13.0", "aiohttp", "fastapi", "uvicorn", "opentelemetry-api", "opentelemetry-sdk", "redis", "sqlmodel", "cryptography"]
 
 [project.scripts]
 noisefloor = "noisefloor.ci.cli:main"
+
+[tool.setuptools]
+packages = ["noisefloor"]
