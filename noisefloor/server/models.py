@@ -25,4 +25,5 @@ class VerdictModel(SQLModel, table=True):
     samples: int
     log_lambda: float
     decision: str # H0, H1, CONTINUING
+    cost_saved: float = Field(default=0.0)
     cryptographic_signature: Optional[str] = None
