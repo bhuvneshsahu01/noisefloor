@@ -31,16 +31,28 @@ class ConformalPredictor:
         
         self._q_hat = np.quantile(self.calibration_scores, q_level, method='higher')
 
-    def is_safe(self, current_score: float) -> bool:
+    def get_adjusted_bound(self, step_number: int = 1) -> float:
+        """Returns the conformal risk boundary adjusted for trajectory steps (Bonferroni)."""
+        if step_number <= 1 or not self.calibration_scores:
+            return self._q_hat
+            
+        n = len(self.calibration_scores)
+        adjusted_alpha = self.alpha / step_number
+        q_level = np.ceil((n + 1) * (1 - adjusted_alpha)) / n
+        q_level = min(max(q_level, 0.0), 1.0)
+        return np.quantile(self.calibration_scores, q_level, method='higher')
+
+    def is_safe(self, current_score: float, step_number: int = 1) -> bool:
         """
         Returns True if the current score is within the calibrated safe bound.
+        Supports trajectory-adjusted bounds if step_number > 1.
         """
         if not self.calibration_scores:
             # If not calibrated, we conservatively abstain or warn.
-            # For the SDK, we'll allow it initially but flag it in tracing.
             return True 
             
-        return current_score <= self._q_hat
+        bound = self.get_adjusted_bound(step_number)
+        return current_score <= bound
 
     def get_bound(self) -> float:
         """Returns the current conformal risk boundary."""
