@@ -1,5 +1,6 @@
 import functools
 import logging
+import contextvars
 from typing import Callable, Any
 from noisefloor.core.conformal import ConformalPredictor
 from noisefloor.core.trajectory import active_trace_id, trajectory_tracker
@@ -9,14 +10,18 @@ from noisefloor.telemetry import get_tracer
 logger = logging.getLogger("noisefloor.risk")
 tracer = get_tracer("noisefloor.agent_guard")
 
+# Context var to dynamically override shadow mode in thread/async execution
+active_shadow_mode = contextvars.ContextVar("active_shadow_mode", default=None)
+
 class RiskGuard:
     """
     The control-flow primitive for autonomous agents.
     Wraps agent tools or generation steps and halts execution if 
     the Conformal Risk bounds are breached.
     """
-    def __init__(self, conformal_predictor: ConformalPredictor):
+    def __init__(self, conformal_predictor: ConformalPredictor, shadow_mode: bool = False):
         self.predictor = conformal_predictor
+        self.shadow_mode = shadow_mode
 
     def guard(self, score_fn: Callable[..., float]):
         """
@@ -28,12 +33,19 @@ class RiskGuard:
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
                 with tracer.start_as_current_span(f"agent_action.{func.__name__}") as span:
-                    # 1. Resolve trace_id for trajectory-level calibration
-                    trace_id = kwargs.get("trace_id") or active_trace_id.get()
+                    # Create a copy or pop keys to avoid passing them to score_fn/func
+                    kwargs_clean = kwargs.copy()
+                    trace_id = kwargs_clean.pop("trace_id", None) or active_trace_id.get()
+                    is_shadow = kwargs_clean.pop("shadow_mode", None)
                     step_number = 1
                     
-                    # 2. Calculate uncertainty of the impending action
-                    current_score = score_fn(*args, **kwargs)
+                    # 2. Resolve shadow mode if not explicitly popped from kwargs
+                    if is_shadow is None:
+                        ctx_val = active_shadow_mode.get()
+                        is_shadow = ctx_val if ctx_val is not None else self.shadow_mode
+                    
+                    # 3. Calculate uncertainty of the impending action
+                    current_score = score_fn(*args, **kwargs_clean)
                     span.set_attribute("agent.conformal_score", current_score)
                     
                     if trace_id:
@@ -44,25 +56,34 @@ class RiskGuard:
                     bound = self.predictor.get_adjusted_bound(step_number)
                     span.set_attribute("agent.conformal_bound", bound)
                     
-                    # 3. Check against the formal coverage guarantee
+                    # 4. Check against the formal coverage guarantee
                     if not self.predictor.is_safe(current_score, step_number):
-                        span.set_attribute("agent.action_status", "BLOCKED")
-                        span.record_exception(ConformalRiskException("Risk bound exceeded"))
+                        if is_shadow:
+                            span.set_attribute("agent.action_status", "SHADOW_BLOCKED")
+                            logger.warning(
+                                f"SHADOW BLOCKED: Action {func.__name__} at step {step_number} "
+                                f"exceeds bound {bound} but allowed to execute (Shadow Mode active)."
+                            )
+                        else:
+                            span.set_attribute("agent.action_status", "BLOCKED")
+                            span.record_exception(ConformalRiskException("Risk bound exceeded"))
+                            
+                            logger.warning(
+                                f"Action {func.__name__} blocked at step {step_number}! "
+                                f"Risk score {current_score} exceeds conformal bound {bound}."
+                            )
+                            raise ConformalRiskException(
+                                f"Action blocked by RiskLayer. Conformal bound exceeded at step {step_number}."
+                            )
+                    else:
+                        # Safe to execute
+                        span.set_attribute("agent.action_status", "APPROVED")
                         
-                        logger.warning(
-                            f"Action {func.__name__} blocked at step {step_number}! "
-                            f"Risk score {current_score} exceeds conformal bound {bound}."
-                        )
-                        raise ConformalRiskException(
-                            f"Action blocked by RiskLayer. Conformal bound exceeded at step {step_number}."
-                        )
-                    
-                    # 4. Safe to execute
-                    span.set_attribute("agent.action_status", "APPROVED")
-                    return func(*args, **kwargs)
+                    return func(*args, **kwargs_clean)
             return wrapper
         return decorator
 
 # Global primitive instance for easy importing
 risk = RiskGuard(ConformalPredictor(alpha=0.05))
+
 
