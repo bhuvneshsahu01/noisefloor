@@ -13,6 +13,7 @@ from noisefloor.server.models import AgentTraceModel, VerdictModel
 from noisefloor.core.signer import AuditSigner
 from noisefloor.core.state import get_state_store
 from noisefloor.judges import ConformalJudge, LiveLLMJudge
+from noisefloor.integrations.routing import ConformalRouter
 from pydantic import BaseModel
 
 # Initialize OpenTelemetry
@@ -56,20 +57,67 @@ state_store = get_state_store()
 # Default to a mock fallback if no keys are found
 try:
     live_judge = LiveLLMJudge()
+    cheap_judge = LiveLLMJudge("groq")
+    premium_judge = LiveLLMJudge("openrouter")
 except Exception as e:
     # Safe dummy fallback for testing
     class DummyJudge:
-        def evaluate_correctness(self, q, r): return 0.85
-    live_judge = DummyJudge()
+        def __init__(self, score=0.85): self.score = score
+        def evaluate_correctness(self, q, r): return self.score
+    live_judge = DummyJudge(0.85)
+    cheap_judge = DummyJudge(0.55) # Set cheap to ambiguous by default to trigger routing tests
+    premium_judge = DummyJudge(0.88)
     
 # Conformal prediction bounds calibration
 historical_errors = [0.05, 0.1, 0.08, 0.15, 0.22, 0.02, 0.12]
 conformal_judge = ConformalJudge(calibration_scores=historical_errors, alpha=0.10)
 
+# Setup Conformal Router
+conformal_router = ConformalRouter(cheap_judge, premium_judge, conformal_judge)
+
 class EvaluationRequest(BaseModel):
     test_name: str
     question: str
     response: str
+
+@app.post("/api/v1/evaluations/route", response_model=VerdictModel)
+def evaluate_conformal_route(req: EvaluationRequest, session: Session = Depends(get_session)):
+    """
+    Dynamically route evaluation queries using Conformal prediction bounds.
+    Saves costs and registers the savings inside the database metrics.
+    """
+    # 1. Run model routing check
+    result = conformal_router.route_and_evaluate(req.question, req.response)
+    
+    # 2. Create persistent verdict record
+    verdict = VerdictModel(
+        test_name=f"{req.test_name} ({result['routed_to'].upper()} ROUTE)",
+        samples=1,
+        log_lambda=result["score"],
+        decision=result["decision"],
+        cost_saved=result["cost_saved"]
+    )
+    
+    # 3. Cryptographically sign verdict payload
+    payload = {
+        "test_name": verdict.test_name,
+        "samples": verdict.samples,
+        "log_lambda": verdict.log_lambda,
+        "decision": verdict.decision
+    }
+    verdict.cryptographic_signature = signer.sign_verdict(payload)
+    
+    session.add(verdict)
+    session.commit()
+    session.refresh(verdict)
+    
+    # Keep track of running metrics in distributed state
+    state_store.incr("metric:total_evaluations")
+    if result["cost_saved"] > 0:
+        # Save saved cost in state (e.g. multiplied by 10000 to keep as int)
+        state_store.incr("metric:cost_savings_micros")
+        
+    return verdict
 
 @app.post("/api/v1/evaluations/judge", response_model=VerdictModel)
 def evaluate_llm_judge(req: EvaluationRequest, session: Session = Depends(get_session)):
