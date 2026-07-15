@@ -1,38 +1,36 @@
 """
-Verdict generation and interpretations.
+Verdict generation and interpretations using Pydantic for validation.
 """
-from dataclasses import dataclass
+from pydantic import BaseModel, Field
+from typing import List
 
-@dataclass
-class CompareResult:
-    verdict: str
-    p_value: float
-    effect_size: float
-    ci_lower: float
-    ci_upper: float
-    ci_level: float
-    method_used: str
-    baseline_mean: float
-    candidate_mean: float
-    delta: float
-    n_samples: int
-    power: float
-    min_n_for_significance: int
-    interpretation: str
-    raw_bootstrap_deltas: list[float]
+class CompareResult(BaseModel):
+    verdict: str = Field(description="The final verdict string (e.g., SHIP, DO NOT SHIP)")
+    p_value: float = Field(ge=0.0, le=1.0, description="The statistical p-value")
+    effect_size: float = Field(description="The calculated effect size (Cohen's d or similar)")
+    ci_lower: float = Field(description="Lower bound of the confidence interval")
+    ci_upper: float = Field(description="Upper bound of the confidence interval")
+    ci_level: float = Field(description="The confidence level (e.g., 0.95)")
+    method_used: str = Field(description="The statistical method used (e.g., bootstrap_bca)")
+    baseline_mean: float = Field(description="Mean score of the baseline group")
+    candidate_mean: float = Field(description="Mean score of the candidate group")
+    delta: float = Field(description="Difference between candidate and baseline means")
+    n_samples: int = Field(gt=0, description="Number of samples evaluated")
+    power: float = Field(ge=0.0, le=1.0, description="Statistical power achieved or assumed")
+    min_n_for_significance: int = Field(ge=0, description="Minimum sample size needed for target power")
+    interpretation: str = Field(description="Human readable explanation of the verdict")
+    raw_bootstrap_deltas: List[float] = Field(default_factory=list, description="Raw bootstrap sample deltas")
 
-@dataclass
-class SPRTDecision:
-    decision: str
-    n_samples: int
-    log_lambda: float
-    lower_boundary: float
-    upper_boundary: float
-    savings_pct: float
-    cumulative_pass_rate: float
+class SPRTDecision(BaseModel):
+    decision: str = Field(description="Current decision state: CONTINUE, ACCEPT_H0, ACCEPT_H1, MAX_REACHED")
+    n_samples: int = Field(ge=0, description="Number of samples evaluated so far")
+    log_lambda: float = Field(description="Current log-likelihood ratio")
+    lower_boundary: float = Field(description="Log boundary to accept H0")
+    upper_boundary: float = Field(description="Log boundary to accept H1")
+    savings_pct: float = Field(ge=0.0, le=100.0, description="Percentage of sample budget saved")
+    cumulative_pass_rate: float = Field(ge=0.0, le=1.0, description="Running average pass rate")
 
-@dataclass
-class BootstrapResult:
+class BootstrapResult(BaseModel):
     point_estimate: float
     ci_lower: float
     ci_upper: float
@@ -43,17 +41,15 @@ class BootstrapResult:
     n_bootstrap: int
     method: str
 
-@dataclass
-class PowerResult:
+class PowerResult(BaseModel):
     min_n_per_group: int
     achieved_power: float
     effect_size: float
     detectable_delta: float
-    power_curve: dict
+    power_curve: dict[int, float]
     recommendation: str
 
-@dataclass
-class AuditResult:
+class AuditResult(BaseModel):
     reported_sharpe: float
     annualized_return: float
     max_drawdown: float
@@ -67,7 +63,7 @@ class AuditResult:
     verdict: str
     verdict_code: int
     confidence: str
-    recommendations: list[str]
+    recommendations: List[str]
     interpretation: str
 
 def generate_compare_verdict(p_value: float, ci_lower: float, ci_upper: float, alpha: float, effect_size: float, effect_threshold: float, power: float) -> str:

@@ -1,14 +1,15 @@
 """
 Power analysis for Noisefloor.
 """
+from typing import Optional, Any
 import numpy as np
-from scipy import stats
+from scipy import stats  # type: ignore
 from .core.verdicts import PowerResult
 
 def power_analysis(
-    effect_size: float = None,
-    baseline_rate: float = None,
-    target_rate: float = None,
+    effect_size: Optional[float] = None,
+    baseline_rate: Optional[float] = None,
+    target_rate: Optional[float] = None,
     alpha: float = 0.05,
     power_target: float = 0.80,
     test_type: str = "two-sided"
@@ -28,7 +29,7 @@ def power_analysis(
         # Continuous metric approximation
         n = 2 * ((z_alpha + z_power) / effect_size) ** 2
         d = effect_size
-    else:
+    elif baseline_rate is not None and target_rate is not None:
         # Two proportions
         p1 = baseline_rate
         p2 = target_rate
@@ -41,6 +42,8 @@ def power_analysis(
         # Approximate effect size (Cohen's h)
         h = 2 * np.arcsin(np.sqrt(p2)) - 2 * np.arcsin(np.sqrt(p1))
         d = abs(h)
+    else:
+        raise ValueError("Must provide either effect_size OR (baseline_rate and target_rate).")
 
     min_n = int(np.ceil(n))
     

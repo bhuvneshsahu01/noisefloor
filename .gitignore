@@ -1,0 +1,18 @@
+# Git ignore rules for Noisefloor project
+
+plans/
+scratch/
+noisefloor.db
+noisefloor.egg-info/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.venv/
+env/
+venv/
+node_modules/
+dist/
+build/
+.vite/

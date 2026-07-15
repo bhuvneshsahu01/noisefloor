@@ -2,8 +2,9 @@
 Effect size calculations.
 """
 import numpy as np
+from typing import Any
 
-def cohens_d(x: np.ndarray, y: np.ndarray, paired: bool = False) -> float:
+def cohens_d(x: np.ndarray[Any, Any], y: np.ndarray[Any, Any], paired: bool = False) -> float:
     """Calculate Cohen's d effect size for two groups."""
     x = np.asarray(x)
     y = np.asarray(y)
@@ -25,9 +26,9 @@ def cohens_d(x: np.ndarray, y: np.ndarray, paired: bool = False) -> float:
         pooled_std = np.sqrt(((n1 - 1) * var1 + (n2 - 1) * var2) / (n1 + n2 - 2))
         if pooled_std == 0:
             return 0.0
-        return mean_diff / pooled_std
+        return float(mean_diff / pooled_std)
 
-def hedges_g(x: np.ndarray, y: np.ndarray, paired: bool = False) -> float:
+def hedges_g(x: np.ndarray[Any, Any], y: np.ndarray[Any, Any], paired: bool = False) -> float:
     """Calculate Hedge's g effect size (Cohen's d with small sample correction)."""
     d = cohens_d(x, y, paired)
     n1, n2 = len(x), len(y)
