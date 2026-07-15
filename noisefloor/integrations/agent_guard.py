@@ -23,11 +23,13 @@ class RiskGuard:
         self.predictor = conformal_predictor
         self.shadow_mode = shadow_mode
 
-    def guard(self, score_fn: Callable[..., float]):
+    def guard(self, score_fn: Callable[..., float], fallback_handler: Any = None):
         """
         Decorator for agent actions.
         :param score_fn: A function that calculates the non-conformity score 
                          (e.g. predictive uncertainty) of the input arguments.
+        :param fallback_handler: A callable that attempts to heal failed parameters,
+                                 returning a tuple of (new_args, new_kwargs).
         """
         def decorator(func: Callable):
             @functools.wraps(func)
@@ -58,6 +60,24 @@ class RiskGuard:
                     
                     # 4. Check against the formal coverage guarantee
                     if not self.predictor.is_safe(current_score, step_number):
+                        # Attempt self-healing if a fallback handler is registered
+                        if fallback_handler is not None:
+                            try:
+                                logger.info(f"Self-Healing: Triggering fallback handler for {func.__name__}...")
+                                healed_args, healed_kwargs = fallback_handler(*args, **kwargs_clean)
+                                
+                                # Recheck risk boundary with healed parameters
+                                healed_score = score_fn(*healed_args, **healed_kwargs)
+                                if self.predictor.is_safe(healed_score, step_number):
+                                    span.set_attribute("agent.action_status", "HEALED")
+                                    span.set_attribute("agent.healed_score", healed_score)
+                                    logger.info(f"Self-Healing: Action {func.__name__} successfully healed!")
+                                    return func(*healed_args, **healed_kwargs)
+                                else:
+                                    logger.warning("Self-Healing: Healed parameters still exceed risk bounds.")
+                            except Exception as fallback_err:
+                                logger.error(f"Self-Healing: Fallback handler failed: {str(fallback_err)}")
+                                
                         if is_shadow:
                             span.set_attribute("agent.action_status", "SHADOW_BLOCKED")
                             logger.warning(
@@ -82,6 +102,7 @@ class RiskGuard:
                     return func(*args, **kwargs_clean)
             return wrapper
         return decorator
+
 
 # Global primitive instance for easy importing
 risk = RiskGuard(ConformalPredictor(alpha=0.05))
