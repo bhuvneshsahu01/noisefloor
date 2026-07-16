@@ -1,5 +1,5 @@
 import pytest
-from noisefloor.core.conformal import AdaptiveConformalPredictor
+from risklayer.core.conformal import AdaptiveConformalPredictor
 
 def test_adaptive_conformal_predictor_fifo_window():
     """Verify that the sliding window maintains its max size correctly."""

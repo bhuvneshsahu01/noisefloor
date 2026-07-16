@@ -1,7 +1,7 @@
 import pytest
-from noisefloor.core.conformal import ConformalPredictor
-from noisefloor.integrations.agent_guard import RiskGuard
-from noisefloor.exceptions import ConformalRiskException
+from risklayer.core.conformal import ConformalPredictor
+from risklayer.integrations.agent_guard import RiskGuard
+from risklayer.exceptions import ConformalRiskException
 
 def test_conformal_predictor():
     predictor = ConformalPredictor(alpha=0.1) # 90% confidence

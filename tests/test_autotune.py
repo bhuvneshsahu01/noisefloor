@@ -2,8 +2,8 @@ import pytest
 import json
 import os
 from click.testing import CliRunner
-from noisefloor.core.autotune import AutoTuner
-from noisefloor.ci.cli import main
+from risklayer.core.autotune import AutoTuner
+from risklayer.ci.cli import main
 
 class MockLiveJudge:
     def evaluate_correctness(self, q, r):

@@ -3,10 +3,10 @@ from sqlmodel import SQLModel, create_engine, Session
 from fastapi.testclient import TestClient
 from unittest.mock import MagicMock
 
-from noisefloor.judges.conformal import ConformalJudge
-from noisefloor.integrations.routing import ConformalRouter
-from noisefloor.server.api import app, get_session
-from noisefloor.server.models import VerdictModel
+from risklayer.judges.conformal import ConformalJudge
+from risklayer.integrations.routing import ConformalRouter
+from risklayer.server.api import app, get_session
+from risklayer.server.models import VerdictModel
 
 class MockJudge:
     def __init__(self, score: float):

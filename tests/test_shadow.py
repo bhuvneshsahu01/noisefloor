@@ -1,7 +1,7 @@
 import pytest
-from noisefloor.core.conformal import ConformalPredictor
-from noisefloor.integrations.agent_guard import RiskGuard, active_shadow_mode
-from noisefloor.exceptions import ConformalRiskException
+from risklayer.core.conformal import ConformalPredictor
+from risklayer.integrations.agent_guard import RiskGuard, active_shadow_mode
+from risklayer.exceptions import ConformalRiskException
 
 def test_shadow_mode_exception_bypass():
     """Verify that shadow mode intercepts blocks without raising exceptions."""

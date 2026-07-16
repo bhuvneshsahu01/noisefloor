@@ -1,9 +1,9 @@
 import pytest
 from sqlmodel import SQLModel, create_engine, Session
 from fastapi.testclient import TestClient
-from noisefloor.judges.llm import LiveLLMJudge
-from noisefloor.server.api import app, get_session
-from noisefloor.server.models import VerdictModel
+from risklayer.judges.llm import LiveLLMJudge
+from risklayer.server.api import app, get_session
+from risklayer.server.models import VerdictModel
 
 def test_live_llm_judge_initialization():
     """Verify loading from .env occurs and provider is selected."""

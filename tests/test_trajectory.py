@@ -1,8 +1,8 @@
 import pytest
-from noisefloor.core.conformal import ConformalPredictor
-from noisefloor.core.trajectory import active_trace_id, trajectory_tracker
-from noisefloor.integrations.agent_guard import RiskGuard
-from noisefloor.exceptions import ConformalRiskException
+from risklayer.core.conformal import ConformalPredictor
+from risklayer.core.trajectory import active_trace_id, trajectory_tracker
+from risklayer.integrations.agent_guard import RiskGuard
+from risklayer.exceptions import ConformalRiskException
 
 def test_trajectory_step_tracking():
     """Verify that multi-step trajectories increment step indices in tracker."""
