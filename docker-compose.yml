@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  risklayer-api:
+    build: 
+      context: .
+      target: backend
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=production
+    depends_on:
+      - redis
+    volumes:
+      - risklayer_data:/app/data
+
+  risklayer-dashboard:
+    build:
+      context: .
+      target: frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - risklayer-api
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  risklayer_data:
+  redis_data:

@@ -1,0 +1,10 @@
+apiVersion: v2
+name: risklayer
+description: A Helm chart for RiskLayer Enterprise Conformal Guardrails
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+dependencies:
+  - name: redis
+    version: 17.11.3
+    repository: https://charts.bitnami.com/bitnami
